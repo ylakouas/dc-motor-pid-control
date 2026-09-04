@@ -1,89 +1,83 @@
 # Hardware Identification
 
-## Motor
+Status: mostly confirmed. No 12 V has been applied yet.
 
-- Model marking on motor/gearbox: JGA25-370
-- Motor type: Brushed DC gearmotor with two-channel encoder
-- Rated motor voltage: 12 V DC
-- Rated output speed: 150 RPM
-- Gear ratio: TBD
-- Motor positive wire color: Red
-- Motor negative wire color: White
-- Encoder supply wire color: Blue
-- Encoder ground wire color: Black
-- Encoder signal 1 wire color: Yellow
-- Encoder signal 2 wire color: Green
-- Encoder supply voltage: 3.3-5 V
-- Encoder resolution: Seller states "11 signals from the motor"; exact PPR/CPR TBD experimentally
-- Resolution specified at motor shaft or output shaft: Not clearly specified
-- Specification source: Amazon listing, ASIN B08LD26BBG
+## Motor — CONFIRMED
 
-### Encoder Notes
+- Model marking: JGA25-370
+- Rated voltage: DC 12 V
+- Nominal output speed: 150 RPM
+- Source: physical label + Amazon listing ASIN B08LD26BBG
 
-The seller identifies Yellow and Green as the two signal-feedback wires
-but does not explicitly designate which is channel A versus B.
+| Wire | Function |
+|---|---|
+| Red | Motor + |
+| White | Motor − |
+| Blue | Encoder VCC |
+| Black | Encoder GND |
+| Yellow | Encoder signal 1 |
+| Green | Encoder signal 2 |
 
-The seller's phrase "11 signals from the motor" is ambiguous and will
-not be treated as a verified counts-per-revolution value.
+- Encoder supply range: 3.3–5 V (listing). Uno 5 V rail is in range.
+- A/B assignment: NOT yet determined. Yellow/Green called signal 1 / signal 2
+  until phase relationship is observed on the scope.
 
-Effective encoder counts per gearbox output-shaft revolution will be
-verified experimentally before final RPM calculations are used.
+### Encoder resolution — UNRESOLVED
 
-## DRV8871 Module
+Seller states "11 signals from the motor." Wording does not specify
+pulses vs counts, per channel or total, or motor shaft vs output shaft.
 
-- Board/module marking: DRV8871
-- Motor supply positive terminal: VM
-- Ground terminal: GND
-- Motor output terminals: OUT1, OUT2
-- Logic/control inputs: IN1, IN2
-- Onboard bulk capacitor: 47 uF, 50 V
-- Headers already soldered: No
-- Screw terminals already soldered: No
-- Included connectors: Two 2-position screw terminals and one 4-pin male header
-- Current-limit configuration: TBD
+Working hypothesis (unverified): 11 PPR per channel on the motor shaft,
+x4 quadrature = 44 counts per motor rev, x gear ratio = counts per
+output rev.
 
-### DRV8871 Notes
+To be established experimentally in Stage 3 by hand-turning the output
+shaft a known number of revolutions and counting edges.
 
-VM is the motor-supply input, not a 5 V logic-supply input.
+## DRV8871 module — CONFIRMED
 
-The intended motor supply is approximately 12 V.
+Screw terminals (2 x 2-position, not yet soldered):
+- OUT1, OUT2 — motor
+- VM, GND — 12 V motor supply
 
-The ATmega328 and DRV8871 will require a common ground when the final
-wiring is assembled.
+4-pin header (not yet soldered):
+- IN2, IN1, VM, GND
 
-## Power Supply
+**VM on the header is the same net as VM on the screw terminal. It is the
+12 V motor rail, NOT a logic supply. Never connect Arduino 5 V to it.**
+
+The DRV8871 needs no logic supply; IN1/IN2 accept up to 5.5 V logic directly.
+IN1 controls OUT1, IN2 controls OUT2.
+
+- Onboard capacitor: 47 uF / 50 V electrolytic, polarized.
+  Reversed supply polarity will reverse-bias it. Verify polarity first.
+- Current limit (ILIM): TBD. Not broken out on the header. Check for an
+  SMD resistor near the chip. I_trip ~= 66500 / R_ILIM (verify vs TI datasheet).
+- Connectors: NOT yet soldered.
+
+## Power supply — CONFIRMED
 
 - Model: ALT-1202
-- Rated input: AC 100-240 V, 50/60 Hz
-- Rated output voltage: 12 V DC
-- Rated output current: 2 A
-- Rated output power: 24 W
-- Barrel polarity: Appears center-positive from label; verify with multimeter
+- Output: DC 12 V / 2 A / 24 W
+- Barrel polarity: marking suggests center-positive. NOT yet meter-verified.
 - Measured output voltage: TBD
 
-## Barrel Adapter
+## Controller — CONFIRMED
 
-- Wall-adapter connector: Male barrel plug
-- Project adapter: Female barrel socket to screw-terminal adapter
-- Terminal polarity: Verify before connection
+- Whadda / Velleman WPB100 ATmega328 UNO development board
+- Vendor states 100% Arduino Uno compatible
+- Standard D0-D13 / A0-A5 labels confirmed from photos
+- PlatformIO: board = uno
 
-## Controller
+## Connections between Arduino and DRV8871
 
-- Board: Velleman / Whadda ATmega328 UNO Development Board
-- Microcontroller family: ATmega328
-- Standard UNO D0-D13 labels confirmed: Yes
-- Standard UNO A0-A5 labels confirmed: Yes
-- USB connector: USB-B
-- PlatformIO board target: uno
-- Voltage jumper/switch present: TBD / verify if applicable
+Only three: IN1, IN2, and GND. Shared ground is required so the driver
+has a reference for the PWM signal.
 
-## Open Questions
+## Open items before power-on
 
-- Exact encoder counts per revolution
-- Exact interpretation of seller's "11 signals from the motor"
-- Encoder A/B channel naming
-- Gear ratio
-- DRV8871 current-limit configuration
-- Final ATmega pin assignments
-- Final pin-to-pin wiring table
-- Measured 12 V adapter output and polarity
+- [ ] Meter-verify 12 V adapter polarity and voltage
+- [ ] Identify ILIM resistor on DRV8871
+- [ ] Solder DRV8871 connectors
+- [ ] Final Arduino pin assignments
+- [ ] Reviewed pin-to-pin wiring table
