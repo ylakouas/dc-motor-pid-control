@@ -1,0 +1,21 @@
+# PlatformIO build output
+.pio/
+
+# Arduino / C++ build output
+build/
+*.hex
+*.elf
+*.o
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Visual Studio Code local configuration
+.vscode/
+
+# Windows / macOS junk
+Thumbs.db
+.DS_Store
