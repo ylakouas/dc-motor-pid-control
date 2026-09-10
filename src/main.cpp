@@ -2,10 +2,10 @@
 
 void setup()
 {
-    pinMode(LED_BUILTIN, OUTPUT);   // onboard LED pin, output mode
+    pinMode(LED_BUILTIN, OUTPUT);
 
-    Serial.begin(115200);           // must match monitor_speed in platformio.ini
-    delay(500);                     // let the USB-serial link settle before printing
+    Serial.begin(115200);
+    delay(500);
 
     Serial.println("DC Motor PID Control Project");
     Serial.println("Stage 1: PlatformIO firmware test");

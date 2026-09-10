@@ -19,7 +19,7 @@ motor PWM command.
 
 | Part | Role |
 |---|---|
-| GA25-370 12 V gearmotor with A/B encoder | Motor + velocity feedback |
+| JGA25-370 12 V / 150 RPM gearmotor with quadrature encoder | Motor + velocity feedback |
 | DRV8871 H-bridge module | Motor power stage |
 | Whadda ATmega328 UNO board | Real-time controller |
 | 12 V / 2 A regulated adapter | Motor power supply |
@@ -28,11 +28,14 @@ motor PWM command.
 
 ## Repository Layout
 
-- `docs/` — hardware identification, wiring, control theory, tuning, and debugging
-- `firmware/` — PlatformIO embedded firmware project
+- `platformio.ini` — PlatformIO build configuration (target board, framework)
+- `src/` — firmware source. One evolving project; build stages preserved
+  as Git commits and tags rather than duplicated sketch folders
+- `include/`, `lib/`, `test/` — standard PlatformIO directories, unused so far
+- `docs/` — hardware identification, wiring, control theory, tuning, debugging
 - `data/` — raw experimental CSV logs
 - `analysis/` — Python data-analysis and plotting scripts
-- `images/` — hardware photos, wiring photos, and oscilloscope captures
+- `images/` — hardware photos, wiring photos, oscilloscope captures
 
 ## Build Stages
 
