@@ -53,14 +53,14 @@ IN1 controls OUT1, IN2 controls OUT2.
   Reversed supply polarity will reverse-bias it. Verify polarity first.
 - Current limit (ILIM): TBD. Not broken out on the header. Check for an
   SMD resistor near the chip. I_trip ~= 66500 / R_ILIM (verify vs TI datasheet).
-- Connectors: NOT yet soldered.
+  - Connectors: SOLDERED. Both 2-position screw terminals and the 4-pin header installed on board #3. 8 joints, no visible bridges. Continuity check across adjacent pins: no continuity. Unpowered.
 
 ## Power supply — CONFIRMED
 
 - Model: ALT-1202
 - Output: DC 12 V / 2 A / 24 W
-- Barrel polarity: marking suggests center-positive. NOT yet meter-verified.
-- Measured output voltage: TBD
+- Barrel polarity: center-positive, meter-verified.
+- Measured output voltage: 12.61 V DC unloaded (-12.61 V probes reversed).
 
 ## Controller — CONFIRMED
 
