@@ -1,12 +1,27 @@
 #include <Arduino.h>
 
-const int IN1 = 9;    // DRV8871 IN1
-const int IN2 = 10;   // DRV8871 IN2
+// motor driver (Stage 2)
+const int IN1 = 9;
+const int IN2 = 10;
 
-int duty = 0;         // 0-255
+int duty = 0;
 bool forward = true;
 
-void coast()          // both low = bridge off
+// encoder (Stage 3)
+const int ENC_A = 2;   // Yellow, INT0
+const int ENC_B = 3;   // Green, INT1
+
+volatile long encoderCount = 0;
+volatile uint8_t lastEncoded = 0;
+
+// RPM calculation (Stage 4)
+const float COUNTS_PER_REV = 2500.0;  // measured, x4 decode, output shaft
+long lastCount = 0;
+
+unsigned long lastPrintTime = 0;
+const unsigned long PRINT_INTERVAL_MS = 200;
+
+void coast()
 {
     digitalWrite(IN1, LOW);
     digitalWrite(IN2, LOW);
@@ -19,7 +34,6 @@ void drive()
         return;
     }
 
-    // coast-mode PWM: one pin PWMs, the other stays low
     if (forward) {
         digitalWrite(IN2, LOW);
         analogWrite(IN1, duty);
@@ -29,16 +43,40 @@ void drive()
     }
 }
 
+void updateEncoder()
+{
+    int a = digitalRead(ENC_A);
+    int b = digitalRead(ENC_B);
+    uint8_t encoded = (a << 1) | b;
+    uint8_t transition = (lastEncoded << 2) | encoded;
+
+    switch (transition) {
+        case 0b0001: case 0b0111: case 0b1110: case 0b1000:
+            encoderCount++;
+            break;
+        case 0b0010: case 0b1011: case 0b1101: case 0b0100:
+            encoderCount--;
+            break;
+    }
+
+    lastEncoded = encoded;
+}
+
 void setup()
 {
     pinMode(IN1, OUTPUT);
     pinMode(IN2, OUTPUT);
-    coast();            // safe state before 12V goes on
+    coast();
+
+    pinMode(ENC_A, INPUT);
+    pinMode(ENC_B, INPUT);
+    lastEncoded = (digitalRead(ENC_A) << 1) | digitalRead(ENC_B);
+    attachInterrupt(digitalPinToInterrupt(ENC_A), updateEncoder, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(ENC_B), updateEncoder, CHANGE);
 
     Serial.begin(115200);
     delay(500);
-    Serial.println("Stage 2: open-loop PWM");
-    Serial.println("0-9 = 0-90% duty, f = 100%, s = stop, d = flip direction");
+    Serial.println("millis,duty,count,rpm");  // CSV header, once per boot
 }
 
 void loop()
@@ -53,16 +91,33 @@ void loop()
         } else if (c == 's') {
             duty = 0;
         } else if (c == 'd') {
-            duty = 0;         // always stop before reversing
+            duty = 0;
             coast();
             forward = !forward;
         }
 
         drive();
+    }
 
-        Serial.print("duty ");
+    unsigned long now = millis();
+    if (now - lastPrintTime >= PRINT_INTERVAL_MS) {
+        lastPrintTime = now;
+
+        noInterrupts();
+        long countSnapshot = encoderCount;
+        interrupts();
+
+        long deltaCount = countSnapshot - lastCount;
+        lastCount = countSnapshot;
+
+        float rpm = (deltaCount / COUNTS_PER_REV) * (60000.0 / PRINT_INTERVAL_MS);
+
+        Serial.print(now);
+        Serial.print(",");
         Serial.print(duty);
-        Serial.print("  dir ");
-        Serial.println(forward ? "fwd" : "rev");
+        Serial.print(",");
+        Serial.print(countSnapshot);
+        Serial.print(",");
+        Serial.println(rpm, 2);
     }
 }
