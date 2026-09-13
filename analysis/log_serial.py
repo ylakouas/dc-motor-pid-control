@@ -1,16 +1,24 @@
 """
-Logs Arduino serial output to a CSV file while allowing commands
-to be sent from this same terminal.
+Interactive serial logger for closed-loop control stages.
+
+Type a target RPM such as:
+    130
+    80
+    -80
+
+Other commands:
+    s = stop/coast
+    q = quit logger
 
 Usage:
-    python3 analysis/log_serial.py data/stage5_pwm_sweep.csv
+    python3 analysis/log_serial.py data/stage7_p_control_test.csv
 """
 
 import serial
 import sys
 import threading
 
-PORT = "/dev/cu.usbmodem11101"
+PORT = "/dev/cu.usbmodem1101"
 BAUD = 115200
 
 if len(sys.argv) < 2:
@@ -19,44 +27,52 @@ if len(sys.argv) < 2:
 
 outfile = sys.argv[1]
 
-ser = serial.Serial(PORT, BAUD, timeout=1)
-log_file = open(outfile, "w")
+stop_flag = threading.Event()
 
 
-def read_serial():
-    while True:
+def reader_thread(ser, log_file):
+    while not stop_flag.is_set():
         try:
             line = ser.readline().decode("utf-8", errors="ignore").strip()
-
-            if line:
-                print(line)
-                log_file.write(line + "\n")
-                log_file.flush()
-
         except serial.SerialException:
             break
 
+        if line:
+            print(line)
+            log_file.write(line + "\n")
+            log_file.flush()
 
-reader = threading.Thread(target=read_serial, daemon=True)
-reader.start()
 
-print(f"Logging {PORT} -> {outfile}")
-print("Type motor commands here: 0-9, f, s, d")
-print("Type q to stop logging.")
+with serial.Serial(PORT, BAUD, timeout=1) as ser, open(outfile, "w") as log_file:
+    print(f"Logging {PORT} -> {outfile}")
+    print("Enter target RPM, 's' to stop/coast, or 'q' to quit.")
 
-try:
-    while True:
-        command = input().strip()
+    reader = threading.Thread(
+        target=reader_thread,
+        args=(ser, log_file),
+        daemon=True,
+    )
+    reader.start()
 
-        if command.lower() == "q":
-            break
+    try:
+        while True:
+            command = input().strip()
 
-        if command in "0123456789fsd" and len(command) == 1:
-            ser.write(command.encode("utf-8"))
-        else:
-            print("Valid commands: 0-9, f, s, d, q")
+            if command.lower() == "q":
+                break
 
-finally:
-    ser.close()
-    log_file.close()
-    print("Logger stopped.")
+            if command.lower() == "s":
+                ser.write(b"s\n")
+                continue
+
+            try:
+                int(command)
+                ser.write((command + "\n").encode("utf-8"))
+            except ValueError:
+                print("Enter an integer RPM, 's', or 'q'.")
+
+    except KeyboardInterrupt:
+        pass
+
+    stop_flag.set()
+    print("\nLogger stopped.")
