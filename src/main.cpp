@@ -5,8 +5,8 @@ const int IN1 = 9;
 const int IN2 = 10;
 
 // encoder
-const int ENC_A = 2;
-const int ENC_B = 3;
+const int ENC_A = 2;   // Yellow
+const int ENC_B = 3;   // Green
 
 volatile long encoderCount = 0;
 volatile uint8_t lastEncoded = 0;
@@ -17,9 +17,12 @@ long lastCount = 0;
 
 unsigned long lastControlTime = 0;
 const unsigned long CONTROL_INTERVAL_MS = 200;
+const float DT = CONTROL_INTERVAL_MS / 1000.0;
 
-// P controller
+// PI controller
 float Kp = 0.4;
+float Ki = 0.30;
+float integral = 0.0;
 int targetRpm = 0;
 bool controllerEnabled = false;
 
@@ -86,6 +89,7 @@ void processCommand(char *cmd)
     if (cmd[0] == 's' || cmd[0] == 'S') {
         controllerEnabled = false;
         targetRpm = 0;
+        integral = 0.0;
         coast();
     } else {
         targetRpm = atoi(cmd);
@@ -119,15 +123,28 @@ void setup()
     pinMode(ENC_A, INPUT);
     pinMode(ENC_B, INPUT);
 
-    lastEncoded = (digitalRead(ENC_A) << 1) | digitalRead(ENC_B);
+    lastEncoded =
+        (digitalRead(ENC_A) << 1) |
+        digitalRead(ENC_B);
 
-    attachInterrupt(digitalPinToInterrupt(ENC_A), updateEncoder, CHANGE);
-    attachInterrupt(digitalPinToInterrupt(ENC_B), updateEncoder, CHANGE);
+    attachInterrupt(
+        digitalPinToInterrupt(ENC_A),
+        updateEncoder,
+        CHANGE
+    );
+
+    attachInterrupt(
+        digitalPinToInterrupt(ENC_B),
+        updateEncoder,
+        CHANGE
+    );
 
     Serial.begin(115200);
     delay(500);
 
-    Serial.println("millis,target_rpm,rpm,error,output");
+    Serial.println(
+        "millis,target_rpm,rpm,error,p_term,i_term,output,sat"
+    );
 }
 
 void loop()
@@ -150,13 +167,38 @@ void loop()
             (deltaCount / COUNTS_PER_REV) *
             (60000.0 / CONTROL_INTERVAL_MS);
 
-        float error = targetRpm - rpm;
+        float error = (float)targetRpm - rpm;
+
+        float pTerm = 0.0;
+        float iTerm = 0.0;
         int output = 0;
+        int sat = 0;
 
         if (controllerEnabled) {
-            output = clampOutput((int)(Kp * error));
+            float proposedIntegral = integral + error * DT;
+
+            pTerm = Kp * error;
+            float proposedITerm = Ki * proposedIntegral;
+            float proposedOutput = pTerm + proposedITerm;
+
+            // Conditional-integration anti-windup.
+            // Do not increase the integral if it would push farther
+            // into output saturation.
+            if ((proposedOutput > 255.0 && error > 0) ||
+                (proposedOutput < -255.0 && error < 0)) {
+                sat = 1;
+            } else {
+                integral = proposedIntegral;
+            }
+
+            iTerm = Ki * integral;
+
+            float rawOutput = pTerm + iTerm;
+            output = clampOutput((int)rawOutput);
+
             driveSigned(output);
         } else {
+            integral = 0.0;
             coast();
         }
 
@@ -168,6 +210,12 @@ void loop()
         Serial.print(",");
         Serial.print(error, 2);
         Serial.print(",");
-        Serial.println(output);
+        Serial.print(pTerm, 2);
+        Serial.print(",");
+        Serial.print(iTerm, 2);
+        Serial.print(",");
+        Serial.print(output);
+        Serial.print(",");
+        Serial.println(sat);
     }
 }
